@@ -1,0 +1,213 @@
+\documentclass[letter,10pt]{article}
+\usepackage{balance}
+\usepackage[utf8]{inputenc} 
+\usepackage[T1]{fontenc}
+\usepackage[spanish]{babel}
+\usepackage{enumerate}
+\usepackage{pdfpages}
+\usepackage{graphicx}
+\usepackage{multicol}
+\usepackage{multirow}
+\usepackage{float}
+\usepackage{fancyhdr}
+\usepackage{latexsym}
+\usepackage{amsmath}
+\usepackage{amssymb} 
+\usepackage[top=2cm,bottom=5cm,left=2cm,right=1.5cm]{geometry}
+\renewcommand{\shorthandsspanish}{}
+
+\title{\textbf{Interacciones FMM para ecuación de Stokes}}
+%\author{Javier Gómez}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\section*{Glosario preliminar}
+
+$\vec{X}_q$: Posición del punto de colocación ($Target$).\\
+
+$\vec{X}_{is}$: Posición de los puntos de cuadratura Gaussiana en todo el contorno de la geometría ($Sources$).\\
+La cantidad de $sources$ ($n_s:$ cantidad de $sources$) depende del producto de la cantidad de paneles ($n_p:$ numero de paneles) y los nodos de cuadratura ($n_c:$ Cantidad de nodos de cuadratura) es decir $n_s = n_p*n_c$. $is$ también se utiliza para iniciar el contador de estos elementos en los loops.\\
+
+$\vec{X}_M$: Posición del multipolo.\\
+
+$\vec{X}_L$: Posición del local.\\
+
+$\vec{X}_{MP}$: Posición del multipolo padre.\\
+
+$\vec{X}_{MCh}$: Posición del multipolo hijo.\\
+
+$\vec{X}_{LP}$: Posición del local padre.\\
+
+$\vec{X}_{LCh}$: Posición del local hijo.\\
+
+$\Delta \vec{X}_{ab}$: Distancia entre dos vectores cualquiera.\\
+
+$R_p:$ longitud del panel $p$. Para representar el panel en función del contador para $sources$ se usara la división entera por lo cual $p = is//n_c$ donde $//$ representa la división entera.\\
+
+$\omega_{is}$: Peso de cuadratura gaussiana del $is-esimo$ $source$. Para Gauss-chevishev: $\frac{\pi}{n_c}\sqrt{1-t_is^2}$ donde $t_{is}$ son los nodos de cuadatura en el intervalo $-1 \leq t\leq 1$.\\
+
+$pp:$ Orden del multipolo 
+
+\section{Interacciones:}
+
+El objetivo de desarrollar estas interacciones es guiar el procedimiento del calculo del sistema lineal que se obtiene al desarrollar la ecuación de integral de frontera para un flujo de Stokes (en dos dimensiones para este caso de estudio).\\
+Básicamente lo que se pretende desarrollar es un procedimiento libre de matrices para el sistema $Ax = b$ donde, para el caso estudiado, el vector $b$ ($double-layer$ $potential$) contiene información sobre los efectos de la función de $Green$ para el esfuerzo ($Stresslet$) proyectados en el campo de velocidad del flujo y $Ax$ ($single-layer$ $potential$), contiene información sobre los efectos de la función de $Green$ para la velocidad ($Stokelet$) proyectados en el campo de tensiones del flujo.\\ 
+\indent Las funciones de Green mencionadas anteriormente son:
+
+\begin{equation}
+G_{ji}(\vec{X}) = -\delta_{ji}ln(r) + \frac{x_jx_i}{r^2}
+\label{Gstokelet}
+\end{equation} 
+
+para $stokelet$ y
+
+\begin{equation}
+T_{ijk}(\vec{X}) = -4\frac{x_ix_jx_k}{r^4}
+\label{Gstresslet}
+\end{equation} 
+
+para $stresslet$\\
+
+$x_i$ y $r$ son las componentes y la norma del vector $\vec{X}$ respectivamente 
+
+\subsection{P2P:}
+
+\subsubsection{Single-layer potential}
+
+Las interacciones $particle to particle$ que se guardan en el vector $\vec{b}$, cuyas componentes son $b_j$, se expresan de la forma:
+
+$$b_j(\vec{X_q}) = u_j^{\infty}(\vec{X_q})+\sum_{is=1; {(is//n_c) \neq q}}^{ns} \left(-\frac{1}{4\pi} \right) R_{is//nc}\omega_{is} u_j^{\infty}(is//n_c)T_{ijk}(\Delta\vec{X}_{isq})n_k(is//n_c) $$ 
+
+\noindent con el fin de escribir esa expresión de forma mas compacta se define:
+
+\begin{equation}
+\alpha_{is} = \left(-\frac{1}{4\pi} \right) R_{is//nc}\omega_is
+\label{alphapond}
+\end{equation}
+
+\begin{equation}
+\beta_{ij}(is) = \alpha_{is}u^{\infty}_i(is//n_c)n_k(is//n_c)
+\label{pondD-L}
+\end{equation}
+
+\begin{equation}
+h_j(\Delta\vec{X}_{isq}) = \beta_{ik}(is) T_{ijk}(\Delta\vec{X}_{isq})
+\label{D-Lfunc}
+\end{equation}
+
+Al juntar (\ref{alphapond}), (\ref{pondD-L}) y (\ref{D-Lfunc}) en la expresión para el potencial de doble capa se obtiene:
+
+\begin{equation}
+b_j(\vec{X}_q) = u_j^{\infty}(\vec{X}_q) + \sum_{is=1; {(is//n_c) \neq q}}^{ns} h_j(\Delta \vec{X}_{isq})
+\label{P2PD-L}
+\end{equation}
+
+\subsubsection{Double-layer potential}
+
+Las interacciones $particle to particle$ que se guardan en el vector $\vec{Ax}$, cuyas componentes son $Ax_j$, se expresan de la forma:
+
+$$Ax_j(\vec{X}_q)= \frac{1}{2\pi\mu}\frac{R_q}{2}\left(\int_{-1}^1G_{ji}(\vec{X}_q -\vec{X}(t))dt\right)f_i^D(q) +\sum_{is=1; {(is//n_c) \neq q}}^{ns} \frac{1}{4\pi\mu}R_{is//n_c}\omega_{is}G_{ji}(\Delta \vec{X}_{qis})f_i^D(is//n_c) $$
+
+\noindent en el mismo espíritu de trabajar con expresiones mas compactas se define:
+
+\begin{equation}
+\gamma_i(is) = \frac{-\alpha_{is}}{\mu}f_i^D(is//n_c)
+\label{pondS-L}
+\end{equation}
+
+\begin{equation}
+g_j(\Delta \vec{X}_{qis}) = G_{ji}(\Delta \vec{X}_{qis})\gamma_i(is)
+\label{S-Lfunc}
+\end{equation}
+
+\noindent por lo que las interacciones P2P para el sigle-layer potencial se ve de la forma:
+
+\begin{equation}
+Ax_j(\vec{X}_q) = \frac{1}{4\pi\mu}R_q\left(\int_{-1}^1 G_{ji}(Xq-X(t))dt\right)f_i^D(q)+ \sum_{is=1; {(is//n_c) \neq q}}^{ns}g_j(\Delta \vec{X}_{qis})
+\label{P2PS-L}
+\end{equation}
+
+\subsection{P2M}
+
+\subsubsection{Double-layer potential}
+
+\begin{equation}
+M_{ik}^{np,t}(is) = \frac{1}{n_p!t!}\Delta x_{isM}^{np}\Delta y_{isM}^{t}\beta_{ik}(is)
+\end{equation}
+
+$$M_{ik}^{np,t} = \sum M_{ik}^{np,t}(is)$$
+
+\subsubsection{Single-layer potential}
+
+\begin{equation}
+M_{i}^{np,t}(is) = \frac{1}{n_p!t!}\Delta x_{Mis}^{np}\Delta y_{Mis}^{t}\gamma_{i}(is)
+\end{equation}
+
+$$M_{i}^{np,t} = \sum M_{i}^{np,t}(is)$$
+
+\subsection{M2M}
+
+\subsubsection{Double-layer potential}
+
+\begin{equation}
+MP_{ik}^{n_p,t}(Ch) = \sum_{v=0}^{n_p}\sum_{w=0}^{t}\frac{\Delta x_{M_{Ch}M_P}^{n_p-v} \Delta y_{M_{Ch}M_P}^{t-w}}{(n_p-v)!(t-w)!}MCh_{ik}^{v,w}
+\end{equation}
+
+$$MP_{ik}^{n_p,t}=\sum MP_{ik}^{np,t}(Ch)$$
+
+\subsubsection{Single-layer potential}
+
+\begin{equation}
+MP_{i}^{n_p,t}(Ch) = \sum_{v=0}^{n_p}\sum_{w=0}^{t}\frac{\Delta x_{M_PM_{Ch}}^{n_p-v} \Delta y_{M_PM_{Ch}}^{t-w}}{(n_p-v)!(t-w)!}MCh_{ik}^{v,w}
+\end{equation}
+
+$$MP_{i}^{n_p,t}=\sum MP_{ik}^{np,t}(Ch)$$
+
+\subsection{M2L}
+
+\subsubsection{Double-layer potential}
+
+\begin{equation}
+L_j^{m,s} = \frac{\partial^{m+s}T_{ijk}(\Delta\vec{X}_{LM})}{\partial x^m \partial y^s} \sum_{t=0}^{pp-m-s}\sum_{n_p=0}^{pp-m-s-t} \frac{\partial^{n_p+t}T_{ijk}(\Delta\vec{X}_{LM})}{\partial x^{np} \partial y^t} M_{ik}^{n_p,t}
+\end{equation}
+
+\subsubsection{Single-layer potential}
+
+\begin{equation}
+L_j^{m,s} = \frac{\partial^{m+s}G_{ji}(\Delta\vec{X}_{ML})}{\partial x^m \partial y^s} \sum_{t=0}^{pp-m-s}\sum_{n_p=0}^{pp-m-s-t} \frac{\partial^{n_p+t}G_{ji}(\Delta\vec{X}_{ML})}{\partial x^{np} \partial y^t} M_{i}^{n_p,t}
+\end{equation}
+
+\subsection{L2L}
+
+\subsubsection{Double-layer potential}
+
+\begin{equation}
+LCh_j^{a,b}=\sum_{s=b}^{pp-a}\sum_{m=a}^{pp-s}\frac{\Delta x_{L_pL_{Ch}}^{m-a}\Delta y_{L_pL_{Ch}}^{s-b}}{(s-b)!(m-a)!}LP_j
+\end{equation}
+
+\subsubsection{Single-layer potential}
+
+\begin{equation}
+LCh_j^{a,b}=\sum_{s=b}^{pp-a}\sum_{m=a}^{pp-s}\frac{\Delta x_{L_{Ch}L_p}^{m-a}\Delta y_{L_{Ch}L_p}^{s-b}}{(s-b)!(m-a)!}LP_j
+\end{equation}
+
+\subsection{L2P}
+
+\subsubsection{Double-layer potential}
+
+\begin{equation}
+b_j(\vec{X}_q) = b_j^{P2P}(\vec{X}_q) + \sum_{b=0}^{pp}\sum_{a=0}^{pp-b} \frac{1}{a!b!}\Delta x_{Lq}^a \Delta y_{Lq}^bL_j^{a,b}
+\end{equation}
+
+\subsubsection{Single-layer potential}
+
+\begin{equation}
+Ax_j(\vec{X}_q) = Ax_j^{P2P}(\vec{X}_q) + \sum_{b=0}^{pp}\sum_{a=0}^{pp-b} \frac{1}{a!b!}\Delta x_{qL}^a \Delta y_{qL}^bL_j^{a,b}
+\end{equation}
+
+
+
+\end{document}
